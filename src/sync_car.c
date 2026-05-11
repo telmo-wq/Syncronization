@@ -16,7 +16,7 @@ typedef struct Station {
 
 void station_init(Station *station){
     station->passageiros = 0;
-    station->assentos_livres = 50;
+    station->assentos_livres = 0;
     station->passageiros_embarcados = 0;
 
     pthread_mutex_init(&station->station_mutex, NULL);
@@ -34,5 +34,25 @@ void station_wait_for_car(Station *station){
     }
 
     station->assentos_livres--;
+    station->passageiros_embarcados++;
     pthread_mutex_unlock(&station->station_mutex);
+}
+
+
+void station_load_car(Station *station, int count){  //count é o número de vagas para cada vagão
+    if (count == 0){
+        return;
+    }
+    
+    pthread_mutex_lock(&station->station_mutex);
+    station->assentos_livres = count;
+    pthread_cond_broadcast(&station->esperar_carro);
+
+    while(station->passageiros > 0 && station->assentos_livres > 0){
+        pthread_cond_wait(&station->confirmar_saida, &station->station_mutex);
+    }
+
+    station->assentos_livres = 0;
+    pthread_mutex_unlock(&station->station_mutex);
+
 }
