@@ -1,20 +1,8 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <pthread.h>
+
+#include "sync_car.h"
 
 
-
-typedef struct Station {
-    int passageiros;
-    int assentos_livres;
-    int passageiros_embarcados;
-    pthread_mutex_t station_mutex;
-    pthread_cond_t esperar_carro;  //condition para um passageiro esperar o próximo assento
-    pthread_cond_t confirmar_saida;  //condition para um carro esperar todos os passageiros estarem prontos
-} Station;
-
-
-void station_init(Station *station){
+void station_init(station *station){
     station->passageiros = 0;
     station->assentos_livres = 0;
     station->passageiros_embarcados = 0;
@@ -25,7 +13,7 @@ void station_init(Station *station){
 
 }
 
-void station_wait_for_car(Station *station){
+void station_wait_for_car(station *station){
     pthread_mutex_lock(&station->station_mutex);
     station->passageiros++;
 
@@ -34,25 +22,41 @@ void station_wait_for_car(Station *station){
     }
 
     station->assentos_livres--;
-    station->passageiros_embarcados++;
+    station->passageiros--;
     pthread_mutex_unlock(&station->station_mutex);
 }
 
 
-void station_load_car(Station *station, int count){  //count é o número de vagas para cada vagão
+void station_load_car(station *station, int count){  //count é o número de vagas para cada vagão
+    int alocados = count;
+    pthread_mutex_lock(&station->station_mutex);
     if (count == 0){
+        pthread_mutex_unlock(&station->station_mutex);
         return;
     }
     
-    pthread_mutex_lock(&station->station_mutex);
+    if (station->passageiros > count){
+        alocados = count;
+    }else {
+        alocados = station->passageiros;
+    }
+
     station->assentos_livres = count;
     pthread_cond_broadcast(&station->esperar_carro);
 
-    while(station->passageiros > 0 && station->assentos_livres > 0){
+    while(station->passageiros_embarcados < alocados){
         pthread_cond_wait(&station->confirmar_saida, &station->station_mutex);
     }
 
     station->assentos_livres = 0;
+    station->passageiros_embarcados = 0;
     pthread_mutex_unlock(&station->station_mutex);
 
+}
+
+void station_on_board(station *station){
+    pthread_mutex_lock(&station->station_mutex);
+    station->passageiros_embarcados++;
+    pthread_cond_signal(&station->confirmar_saida);
+    pthread_mutex_unlock(&station->station_mutex);
 }
