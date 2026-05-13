@@ -1,4 +1,3 @@
-
 #include "sync_car.h"
 
 
@@ -28,15 +27,15 @@ void station_wait_for_car(station *station){
 
 
 void station_load_car(station *station, int count){  //count é o número de vagas para cada vagão
-    int alocados = count;
+    int alocados;
     pthread_mutex_lock(&station->station_mutex);
     if (count == 0){
-        pthread_mutex_unlock(&station->station_mutex);
+        pthread_mutex_unlock(&station->station_mutex);   //caso nenhum assento esteja disponível
         return;
     }
     
-    if (station->passageiros > count){
-        alocados = count;
+    if (station->passageiros > count){   //serve para impedir deadlocks
+        alocados = count;                //a condicional trata casos em que o n de assentos seja menor que o de passageiros esperando
     }else {
         alocados = station->passageiros;
     }
